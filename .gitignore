@@ -1,0 +1,18 @@
+# Java / Maven
+backend/target/
+*.class
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Environment / local configuration
+.env
+
+# Node.js artifacts from the old version
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
