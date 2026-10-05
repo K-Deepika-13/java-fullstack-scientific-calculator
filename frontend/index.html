@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scientific Calculator</title>
+<style>
+:root{--bg:#f4f1ea;--card:#fffdf8;--ink:#171817;--muted:#6e6a62;--accent:#e85b3f;--line:#d8d1c4;--soft:#eef5ef}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,sans-serif}
+.container{max-width:1000px;margin:auto;padding:28px 20px 50px}
+header{display:flex;justify-content:space-between;gap:20px;align-items:end;border-bottom:2px solid var(--ink);padding-bottom:20px}
+h1{margin:0;font-size:38px}header p{margin:7px 0 0;color:var(--muted)}
+.status{border:1px solid var(--ink);padding:9px 12px;font-size:12px;background:var(--card)}
+.layout{display:grid;grid-template-columns:minmax(0,650px) minmax(250px,1fr);gap:30px;margin-top:30px}
+.card{background:var(--card);border:2px solid var(--ink);padding:18px;box-shadow:7px 7px 0 var(--ink)}
+.display{border:1px solid var(--line);padding:18px;min-height:110px;background:#f8f5ee;text-align:right}
+.expression{min-height:24px;color:var(--muted);font-size:16px;overflow-wrap:anywhere}
+.result{font-size:42px;font-weight:700;margin-top:20px;overflow-wrap:anywhere}
+.result.error{font-size:20px;color:#c43c29}
+.keys{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:16px}
+button{font:inherit;cursor:pointer}
+.key{min-height:55px;border:1px solid var(--ink);background:var(--card);font-weight:700;font-size:16px}
+.key:hover{background:var(--soft)}
+.op{background:var(--ink);color:white}.accent{background:var(--accent);color:white}
+.history-title{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px}
+.history-title h2{margin:0;font-size:23px}.clear{border:0;background:none;color:#c43c29;font-size:12px;font-weight:700}
+.entries{margin-top:5px;max-height:520px;overflow:auto}
+.entry{padding:13px 0;border-bottom:1px solid var(--line)}
+.entry small{display:block;color:var(--muted);margin-bottom:5px}.entry strong{font-size:18px}
+.empty{color:var(--muted);line-height:1.5;padding:25px 0}
+.note{margin-top:18px;color:var(--muted);font-size:12px;line-height:1.5}
+@media(max-width:800px){.layout{grid-template-columns:1fr}.keys{grid-template-columns:repeat(4,1fr)}.scientific{display:none}}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<div><h1>Scientific Calculator</h1><p>Java + Spring Boot + MySQL Full Stack Project</p></div>
+<div class="status" id="status">Checking backend...</div>
+</header>
+
+<div class="layout">
+<section class="card">
+<div class="display" aria-live="polite">
+<div class="expression" id="expression"></div>
+<div class="result" id="result">0</div>
+</div>
+
+<div class="keys" id="keys">
+<button class="key" data-value="(">(</button>
+<button class="key" data-value=")">)</button>
+<button class="key" data-value="pi">π</button>
+<button class="key" data-value="e">e</button>
+<button class="key" data-action="clear">C</button>
+
+<button class="key" data-value="sin(">sin</button>
+<button class="key" data-value="cos(">cos</button>
+<button class="key" data-value="tan(">tan</button>
+<button class="key" data-value="sqrt(">√</button>
+<button class="key" data-action="delete">DEL</button>
+
+<button class="key" data-value="log(">log</button>
+<button class="key" data-value="ln(">ln</button>
+<button class="key" data-value="abs(">abs</button>
+<button class="key" data-value="^">xʸ</button>
+<button class="key op" data-value="/">÷</button>
+
+<button class="key" data-value="7">7</button>
+<button class="key" data-value="8">8</button>
+<button class="key" data-value="9">9</button>
+<button class="key op" data-value="*">×</button>
+<button class="key op" data-value="-">−</button>
+
+<button class="key" data-value="4">4</button>
+<button class="key" data-value="5">5</button>
+<button class="key" data-value="6">6</button>
+<button class="key op" data-value="+">+</button>
+<button class="key" data-value="%">%</button>
+
+<button class="key" data-value="1">1</button>
+<button class="key" data-value="2">2</button>
+<button class="key" data-value="3">3</button>
+<button class="key" data-value=".">.</button>
+<button class="key accent" data-action="equals">=</button>
+
+<button class="key" data-value="0">0</button>
+</div>
+</section>
+
+<aside class="card">
+<div class="history-title">
+<h2>Calculation History</h2>
+<button class="clear" id="clearHistory">CLEAR</button>
+</div>
+<div class="entries" id="entries">
+<div class="empty">No calculations yet.<br>Your saved calculations will appear here.</div>
+</div>
+<div class="note">History is stored in MySQL through the Java Spring Boot backend.</div>
+</aside>
+</div>
+</div>
+
+<script>
+const API='http://localhost:8080/api';
+let expression='';
+const expressionEl=document.getElementById('expression');
+const resultEl=document.getElementById('result');
+const entriesEl=document.getElementById('entries');
+const statusEl=document.getElementById('status');
+
+function render(value='0'){
+  expressionEl.textContent=expression;
+  resultEl.textContent=value;
+  resultEl.classList.remove('error');
+}
+function append(value){ expression+=value; render(expression); }
+function clearAll(){ expression=''; render(); }
+function removeLast(){ expression=expression.slice(0,-1); render(expression||'0'); }
+
+async function calculate(){
+  if(!expression.trim()) return;
+  try{
+    const response=await fetch(API+'/calculate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({expression})
+    });
+    const data=await response.json();
+    if(!response.ok) throw new Error(data.error||'Invalid expression');
+    resultEl.textContent=formatNumber(data.result);
+    expressionEl.textContent=expression+' =';
+    await saveCalculation(expression);
+  }catch(error){
+    resultEl.textContent=error.message;
+    resultEl.classList.add('error');
+  }
+}
+function formatNumber(value){
+  if(Number.isInteger(value)) return String(value);
+  return Number(value.toFixed(10)).toString();
+}
+async function saveCalculation(raw){
+  try{
+    await fetch(API+'/calculations',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({expression:raw})
+    });
+    loadHistory();
+  }catch(e){}
+}
+async function loadHistory(){
+  try{
+    const response=await fetch(API+'/calculations');
+    if(!response.ok) throw new Error();
+    const rows=await response.json();
+    entriesEl.innerHTML=rows.length ? rows.map(row =>
+      `<div class="entry"><small>${escapeHtml(row.expression)}</small><strong>${formatNumber(row.result)}</strong></div>`
+    ).join('') : '<div class="empty">No calculations yet.<br>Your saved calculations will appear here.</div>';
+    statusEl.textContent='Backend + MySQL connected';
+  }catch(e){
+    statusEl.textContent='Backend not connected';
+  }
+}
+function escapeHtml(value){
+  return value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+
+document.getElementById('keys').addEventListener('click',event=>{
+  const button=event.target.closest('button'); if(!button)return;
+  if(button.dataset.action==='clear')clearAll();
+  else if(button.dataset.action==='delete')removeLast();
+  else if(button.dataset.action==='equals')calculate();
+  else append(button.dataset.value);
+});
+document.getElementById('clearHistory').addEventListener('click',async()=>{
+  await fetch(API+'/calculations',{method:'DELETE'}); loadHistory();
+});
+document.addEventListener('keydown',event=>{
+  if(/^[0-9.]$/.test(event.key)||'+-*/%^()'.includes(event.key))append(event.key);
+  else if(event.key==='Enter'||event.key==='=')calculate();
+  else if(event.key==='Backspace')removeLast();
+  else if(event.key==='Escape')clearAll();
+});
+render();
+loadHistory();
+</script>
+</body>
+</html>
